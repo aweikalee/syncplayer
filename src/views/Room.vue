@@ -22,25 +22,33 @@
       </div>
     </div>
 
-    <div class="room-slide">
-      <div class="room-slide__header">
-        <FileSelect v-model:src="src" v-model:filename="filename" />
+    <div class="room-slide" :class="{ active: showSlide }">
+      <div class="room-slide__container">
+        <div class="room-slide__header">
+          <FileSelect v-model:src="src" v-model:filename="filename" />
 
-        <div class="room-nickname">
-          <label class="room-nickname__label" for="nickname">我的昵称</label>
-          <div class="room-nickname__input">
-            <input
-              id="nickname"
-              type="text"
-              v-model="nicknameModel"
-              @change="setNickname"
-              autocomplete="off"
-            />
+          <div class="room-nickname">
+            <label class="room-nickname__label" for="nickname">我的昵称</label>
+            <div class="room-nickname__input">
+              <input
+                id="nickname"
+                type="text"
+                v-model="nicknameModel"
+                @change="setNickname"
+                autocomplete="off"
+              />
+            </div>
           </div>
         </div>
+
+        <Logs class="room-slide__logs" :list="logs" />
       </div>
 
-      <Logs class="room-slide__logs" :list="logs" />
+      <div
+        class="room-slice__toggle"
+        title="展开/收起侧边栏"
+        @click="showSlide = !showSlide"
+      ></div>
     </div>
   </div>
 </template>
@@ -160,7 +168,6 @@ async function updateSeek(params: IResultBase<IMessagePlayer>) {
   player.value?.seek(params.time)
   player.value?.setRate(params.rate)
   await nextTick()
-  console.log('updateSeek', params.type, params.paused)
   if (params.paused) {
     player.value?.pause()
   } else {
@@ -187,6 +194,9 @@ function setNickname() {
   socket.emit('nickname', { nickname })
   store.nickname = nickname
 }
+
+/* 显隐侧边栏 */
+const showSlide = ref(true)
 </script>
 
 <style lang="less" scoped>
@@ -243,8 +253,12 @@ function setNickname() {
     }
   }
 
-  .room-slide {
+  .room-slide__container {
     box-sizing: border-box;
+  }
+
+  .room-slice__toggle {
+    display: none;
   }
 
   .room-nickname {
@@ -300,12 +314,24 @@ function setNickname() {
     }
 
     .room-slide {
-      width: 300px;
+      position: relative;
       max-width: 50%;
+
+      &.active {
+        .room-slide__container {
+          display: flex;
+        }
+      }
+    }
+
+    .room-slide__container {
+      width: 300px;
+      max-width: 100%;
 
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+
+      display: none;
     }
 
     .room-slide__header {
@@ -315,6 +341,21 @@ function setNickname() {
     .room-slide__logs {
       flex-grow: 1;
       overflow: auto;
+    }
+
+    .room-slice__toggle {
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      height: 30px;
+      width: 10px;
+      border-radius: 5px;
+      background-color: rgba(#999, 0.5);
+
+      cursor: pointer;
+      user-select: none;
     }
   }
 }
