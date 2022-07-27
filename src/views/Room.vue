@@ -50,9 +50,10 @@ type IResultBase<T> = { from: string; sender: string } & T
 
 type IMessagePlayer = {
   action: 'player'
-  type: 'play' | 'pause' | 'seek'
+  type: 'play' | 'pause' | 'seek' | 'ratechange'
   paused: boolean
   time: number
+  rate: number
 }
 
 type IMessageFilename = {
@@ -157,6 +158,7 @@ function onSeek(params: Omit<IMessagePlayer, 'action'>) {
 async function updateSeek(params: IResultBase<IMessagePlayer>) {
   if (params.from === socket.id) return
   player.value?.seek(params.time)
+  player.value?.setRate(params.rate)
   await nextTick()
   console.log('updateSeek', params.type, params.paused)
   if (params.paused) {

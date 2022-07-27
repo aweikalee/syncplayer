@@ -14,9 +14,10 @@ const emit = defineEmits<{
   (
     e: 'seek',
     params: {
-      type: 'play' | 'pause' | 'seek'
+      type: 'play' | 'pause' | 'seek' | 'ratechange'
       paused: boolean
       time: number
+      rate: number
     }
   ): void
 }>()
@@ -38,10 +39,13 @@ onBeforeUnmount(() => {
 onMounted(() => {
   if (!el.value) return
 
+  const playbackRates = [0.2, 0.5, 1, 1.2, 1.5, 2]
+
   const _player = (player.value = videojs(el.value!, {
     autoplay: false,
     controls: true,
     language: 'zh-CN',
+    playbackRates: playbackRates,
     userActions: {
       hotkeys(e) {
         const offset = e.ctrlKey ? 10 : 3
@@ -96,6 +100,7 @@ onMounted(() => {
         type: e.type,
         paused: e.type === 'pause',
         time: _player.currentTime(),
+        rate: _player.playbackRate(),
       })
     }
     isManual = true
@@ -113,8 +118,21 @@ onMounted(() => {
         type: 'seek',
         paused: _player.paused(),
         time: _player.currentTime(),
+        rate: _player.playbackRate(),
       })
     }
+  })
+
+  _player.on('ratechange', (e) => {
+    if (isManual) {
+      emit('seek', {
+        type: 'ratechange',
+        paused: _player.paused(),
+        time: _player.currentTime(),
+        rate: _player.playbackRate(),
+      })
+    }
+    isManual = true
   })
 
   _player.on('volumechange', () => {
@@ -139,11 +157,19 @@ function pause() {
 function seek(time: number) {
   player.value?.currentTime(time)
 }
+function setRate(rate: number) {
+  if (!player.value) return
+  if (player.value.playbackRate() === rate) return
+
+  isManual = false
+  player.value?.playbackRate(rate)
+}
 
 defineExpose({
   play,
   pause,
   seek,
+  setRate,
 })
 </script>
 
