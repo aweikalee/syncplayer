@@ -74,6 +74,25 @@ onMounted(() => {
             e.preventDefault()
             _player.volume(_player.volume() - 0.05)
           },
+
+          /* 播放速率 */
+          '[': () => {
+            e.preventDefault()
+            const oldRate = _player.playbackRate()
+            const index = Math.max(playbackRates.indexOf(oldRate) - 1, 0)
+
+            _player.playbackRate(playbackRates[index])
+          },
+          ']': () => {
+            e.preventDefault()
+            const oldRate = _player.playbackRate()
+            const index = Math.min(
+              playbackRates.indexOf(oldRate) + 1,
+              playbackRates.length - 1
+            )
+
+            _player.playbackRate(playbackRates[index])
+          },
         }
 
         HOTKEY[e.key as keyof typeof HOTKEY]?.()
