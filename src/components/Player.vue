@@ -138,6 +138,23 @@ onMounted(() => {
   _player.on('volumechange', () => {
     localStorage.setItem('volume', String(_player.volume()))
   })
+
+  _player.on(
+    [
+      'play',
+      'pause',
+      'timeupdate',
+      'ratechange',
+      'volumechange',
+      'fullscreenchange',
+      'enterpictureinpicture',
+      'leavepictureinpicture',
+    ],
+    () => {
+      /* 重置焦点 */
+      _player.focus()
+    }
+  )
 })
 
 function play() {
