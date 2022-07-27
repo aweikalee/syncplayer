@@ -48,36 +48,35 @@ onMounted(() => {
     playbackRates: playbackRates,
     userActions: {
       hotkeys(e) {
-        const offset = e.ctrlKey ? 10 : 3
         const HOTKEY = {
           /* 播放/暂停 */
-          32: /* 空格 */ () => {
+          ' ': /* 空格 */ () => {
             e.preventDefault()
             _player.paused() ? _player.play() : _player.pause()
           },
 
           /* 前进/后退 */
-          37: /* 左 */ () => {
+          ArrowLeft() {
             e.preventDefault()
-            _player.currentTime(_player.currentTime() - offset)
+            _player.currentTime(_player.currentTime() - e.ctrlKey ? 10 : 3)
           },
-          39: /* 右 */ () => {
+          ArrowRight() {
             e.preventDefault()
-            _player.currentTime(_player.currentTime() + offset)
+            _player.currentTime(_player.currentTime() + e.ctrlKey ? 10 : 3)
           },
 
           /* 音量增减 */
-          38: /* 上 */ () => {
+          ArrowUp() {
             e.preventDefault()
             _player.volume(_player.volume() + 0.05)
           },
-          40: /* 下 */ () => {
+          ArrowDown() {
             e.preventDefault()
             _player.volume(_player.volume() - 0.05)
           },
         }
 
-        HOTKEY[e.which as keyof typeof HOTKEY]?.()
+        HOTKEY[e.key as keyof typeof HOTKEY]?.()
       },
       doubleClick: false,
     },
