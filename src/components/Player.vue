@@ -1,12 +1,9 @@
 <template>
-  <div data-vjs-player>
-    <video class="video-js vjs-big-play-centered vjs-fill" ref="el" />
-  </div>
+  <div ref="el"></div>
 </template>
 
 <script lang="ts" setup>
-import videojs, { VideoJsPlayer } from 'video.js'
-import 'video.js/dist/video-js.css'
+import DPlayer, { DPlayerContextMenuItem } from 'dplayer'
 
 import { store } from '@/store'
 
@@ -28,176 +25,110 @@ const props = defineProps<{
 }>()
 
 const el = ref<HTMLVideoElement>()
-const player = ref<VideoJsPlayer>()
+const player = ref<DPlayer>()
 
 let isManual = true
+let isManualSeek = true
 
 onBeforeUnmount(() => {
-  player.value?.dispose()
+  player.value?.destroy()
 })
 
 onMounted(() => {
   if (!el.value) return
 
-  const playbackRates = [0.2, 0.5, 1, 1.2, 1.5, 2]
-
-  const _player = (player.value = videojs(el.value!, {
-    autoplay: false,
-    controls: true,
-    language: 'zh-CN',
-    playbackRates: playbackRates,
-    userActions: {
-      hotkeys(e) {
-        const HOTKEY = {
-          /* 播放/暂停 */
-          ' ': /* 空格 */ () => {
-            e.preventDefault()
-            _player.paused() ? _player.play() : _player.pause()
-          },
-
-          /* 前进/后退 */
-          ArrowLeft() {
-            e.preventDefault()
-            _player.currentTime(_player.currentTime() - e.ctrlKey ? 10 : 3)
-          },
-          ArrowRight() {
-            e.preventDefault()
-            _player.currentTime(_player.currentTime() + e.ctrlKey ? 10 : 3)
-          },
-
-          /* 音量增减 */
-          ArrowUp() {
-            e.preventDefault()
-            _player.volume(_player.volume() + 0.05)
-          },
-          ArrowDown() {
-            e.preventDefault()
-            _player.volume(_player.volume() - 0.05)
-          },
-
-          /* 播放速率 */
-          '[': () => {
-            e.preventDefault()
-            const oldRate = _player.playbackRate()
-            const index = Math.max(playbackRates.indexOf(oldRate) - 1, 0)
-
-            _player.playbackRate(playbackRates[index])
-          },
-          ']': () => {
-            e.preventDefault()
-            const oldRate = _player.playbackRate()
-            const index = Math.min(
-              playbackRates.indexOf(oldRate) + 1,
-              playbackRates.length - 1
-            )
-
-            _player.playbackRate(playbackRates[index])
-          },
-        }
-
-        HOTKEY[e.key as keyof typeof HOTKEY]?.()
+  const contextmenu: DPlayerContextMenuItem[] = []
+  if ('exitPictureInPicture' in document) {
+    contextmenu.push({
+      text: '画中画',
+      click: () => {
+        _player.video.requestPictureInPicture()
       },
-      doubleClick: false,
+    })
+  }
+
+  const _player = (player.value = new DPlayer({
+    container: el.value,
+    theme: '#56c4a1',
+    contextmenu,
+
+    video: {
+      url: props.src || '//vjs.zencdn.net/v/oceans.mp4',
     },
-    sources: [
-      {
-        src: props.src || '//vjs.zencdn.net/v/oceans.mp4',
-        type: 'video/mp4',
-      },
-    ],
   }))
 
-  /* 初始设置 */
-  _player.volume(Number(localStorage.getItem('volume')) || 0.7)
-  _player.one('play', () => store.setFirstPlayed(true))
+  _player.on('play' as any, () => {
+    if (!store.firstPlayed) store.setFirstPlayed(true)
 
-  /* 事件 */
-  _player.on(['play', 'pause'], (e) => {
     if (isManual) {
       emit('seek', {
-        type: e.type,
-        paused: e.type === 'pause',
-        time: _player.currentTime(),
-        rate: _player.playbackRate(),
+        type: 'play',
+        paused: false,
+        time: _player.video.currentTime,
+        rate: _player.video.playbackRate,
+      })
+    }
+    isManual = true
+  })
+  _player.on('pause' as any, () => {
+    if (isManual && !_player.video.ended) {
+      emit('seek', {
+        type: 'pause',
+        paused: true,
+        time: _player.video.currentTime,
+        rate: _player.video.playbackRate,
       })
     }
     isManual = true
   })
 
-  let isSeeked = false
-  _player.on('seeked', (e) => {
-    isSeeked = true
-  })
-
-  _player.on('timeupdate', (e) => {
-    if (e.manuallyTriggered && isSeeked) {
-      isSeeked = false
+  _player.on('seeked' as any, () => {
+    if (isManualSeek) {
       emit('seek', {
         type: 'seek',
-        paused: _player.paused(),
-        time: _player.currentTime(),
-        rate: _player.playbackRate(),
+        paused: _player.video.paused,
+        time: _player.video.currentTime,
+        rate: _player.video.playbackRate,
       })
     }
+    isManualSeek = true
   })
 
-  _player.on('ratechange', (e) => {
+  _player.on('ratechange' as any, () => {
     if (isManual) {
       emit('seek', {
         type: 'ratechange',
-        paused: _player.paused(),
-        time: _player.currentTime(),
-        rate: _player.playbackRate(),
+        paused: _player.video.paused,
+        time: _player.video.currentTime,
+        rate: _player.video.playbackRate,
       })
     }
     isManual = true
   })
-
-  _player.on('volumechange', () => {
-    localStorage.setItem('volume', String(_player.volume()))
-  })
-
-  _player.on(
-    [
-      'play',
-      'pause',
-      'timeupdate',
-      'ratechange',
-      'volumechange',
-      'fullscreenchange',
-      'enterpictureinpicture',
-      'leavepictureinpicture',
-    ],
-    () => {
-      /* 重置焦点 */
-      _player.focus()
-    }
-  )
 })
 
 function play() {
   if (!player.value) return
-  if (!player.value.paused()) return
-
+  if (!player.value.video.paused) return
   isManual = false
-  player.value?.play()
+  player.value?.video.play()
 }
 function pause() {
   if (!player.value) return
-  if (player.value.paused()) return
-
+  if (player.value.video.paused) return
   isManual = false
   player.value?.pause()
 }
 function seek(time: number) {
-  player.value?.currentTime(time)
+  if (!player.value) return
+  isManualSeek = false
+  player.value?.seek(time)
 }
 function setRate(rate: number) {
   if (!player.value) return
-  if (player.value.playbackRate() === rate) return
-
+  if (player.value.video.playbackRate === rate) return
   isManual = false
-  player.value?.playbackRate(rate)
+  player.value?.speed(rate)
 }
 
 defineExpose({

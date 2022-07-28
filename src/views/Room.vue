@@ -207,6 +207,11 @@ const showSlide = ref(true)
     height: 100vw * (9/16);
     position: relative;
 
+    .room-player {
+      width: 100%;
+      height: 100%;
+    }
+
     .room-overlay {
       position: absolute;
       top: 0;
