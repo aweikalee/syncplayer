@@ -1,5 +1,5 @@
 <template>
-  <div ref="el"></div>
+  <div ref="el" class="com-player"></div>
 </template>
 
 <script lang="ts" setup>
@@ -22,6 +22,7 @@ const emit = defineEmits<{
 const props = defineProps<{
   src?: string
   filename?: string
+  danmu?: string
 }>()
 
 const el = ref<HTMLVideoElement>()
@@ -55,6 +56,12 @@ onMounted(() => {
     video: {
       url: props.src || '//vjs.zencdn.net/v/oceans.mp4',
     },
+
+    danmaku: props.danmu
+      ? ({
+          addition: [`/danmu?t=${encodeURIComponent(props.danmu)}`],
+        } as any)
+      : undefined,
   }))
 
   _player.on('play' as any, () => {
@@ -139,4 +146,10 @@ defineExpose({
 })
 </script>
 
-<style lang="less" scoped></style>
+<style lang="less" scoped>
+.com-player {
+  :deep(.dplayer-comment) {
+    display: none !important;
+  }
+}
+</style>

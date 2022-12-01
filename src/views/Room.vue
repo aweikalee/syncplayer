@@ -6,8 +6,9 @@
         ref="player"
         :src="src"
         :filename="filename"
+        :danmu="danmu"
         @seek="onSeek"
-        :key="src"
+        :key="key"
       />
 
       <div class="room-overlay" v-if="!store.firstPlayed">
@@ -27,9 +28,9 @@
         <div class="room-slide__header">
           <FileSelect v-model:src="src" v-model:filename="filename" />
 
-          <div class="room-nickname">
-            <label class="room-nickname__label" for="nickname">我的昵称</label>
-            <div class="room-nickname__input">
+          <div class="room-field">
+            <label class="room-field__label" for="nickname">我的昵称</label>
+            <div class="room-field__input">
               <input
                 id="nickname"
                 type="text"
@@ -37,6 +38,27 @@
                 @change="setNickname"
                 autocomplete="off"
               />
+            </div>
+          </div>
+
+          <div
+            class="room-field"
+            :class="{
+              error: danmuModelError,
+            }"
+          >
+            <label class="room-field__label" for="danmu">弹幕地址</label>
+            <div class="room-field__input">
+              <input
+                id="danmu"
+                type="text"
+                v-model="danmuModel"
+                @change="setDanmu"
+                autocomplete="off"
+              />
+            </div>
+            <div class="room-field__append">
+              <div class="room-field__tip" @click="showDanmuTip">?</div>
             </div>
           </div>
         </div>
@@ -71,7 +93,6 @@ type IMessageFilename = {
 
 type IMessageMessage = {
   action: 'message'
-  nickname: string
   message: string
 }
 
@@ -148,6 +169,8 @@ function send(params: IParams) {
 /* 播放器 */
 const src = ref('')
 const filename = ref('')
+const danmu = ref('')
+const key = computed(() => [src.value, danmu.value].join('-'))
 
 watch(filename, (filename) =>
   send({
@@ -173,6 +196,45 @@ async function updateSeek(params: IResultBase<IMessagePlayer>) {
   } else {
     player.value?.play()
   }
+}
+
+/* 弹幕 */
+const danmuModel = ref('')
+const danmuModelError = ref(false)
+watch(
+  () => danmu.value,
+  (value) => (danmuModel.value = value)
+)
+function setDanmu() {
+  let value = danmuModel.value
+  value = value.trim()
+  if (
+    !value ||
+    /^cid\=/.test(value) ||
+    /^http(s?):\/\/api\.bilibili\.com/.test(value)
+  ) {
+    danmu.value = value
+    danmuModelError.value = false
+
+    if (value) {
+      send({
+        action: 'message',
+        message: `将弹幕地址设置为了 ${value}`,
+      })
+    }
+  } else {
+    danmuModelError.value = true
+  }
+}
+
+function showDanmuTip() {
+  alert(`仅支持B站弹幕，支持下面2种形式：
+  1. 完整的“弹幕地址”
+    如：https://api.bilibili.com/x/v1/dm/list.so?oid=1
+  2. “cid=xxxx”形式
+    如：cid=1
+    cid可从B站视频页面接口中寻找
+  `)
 }
 
 /* 用户名 */
@@ -266,7 +328,7 @@ const showSlide = ref(true)
     display: none;
   }
 
-  .room-nickname {
+  .room-field {
     display: flex;
     align-items: center;
     padding: 4px 4px;
@@ -280,13 +342,22 @@ const showSlide = ref(true)
       1 1;
     color: white;
 
-    .room-nickname__label {
+    &.error {
+      border-image: linear-gradient(
+          135deg,
+          rgba(#c47d56, 1),
+          rgba(hsl(21, 48%, 38%), 1)
+        )
+        1 1;
+    }
+
+    .room-field__label {
       flex-shrink: 0;
       font-weight: bold;
       margin-right: 10px;
     }
 
-    .room-nickname__input {
+    .room-field__input {
       flex-grow: 1;
       height: 30px;
 
@@ -298,6 +369,26 @@ const showSlide = ref(true)
         border: none;
         color: inherit;
         outline: none;
+      }
+    }
+
+    .room-field__append {
+      flex-shrink: 0;
+      margin-left: 10px;
+    }
+    .room-field__tip {
+      border: 1px solid white;
+      border-radius: 50%;
+      width: 1em;
+      height: 1em;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      cursor: pointer;
+      user-select: none;
+      &:active {
+        opacity: 0.7;
       }
     }
   }

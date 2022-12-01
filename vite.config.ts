@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/socket.io': 'ws://localhost:4000',
+      '/danmu': 'http://localhost:4000',
     },
   },
 

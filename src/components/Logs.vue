@@ -9,7 +9,7 @@
       <template v-else-if="log.action === 'join'">
         {{ log.sender }} 进入了房间
       </template>
-      
+
       <template v-else-if="log.action === 'leave'">
         {{ log.sender }} 离开了房间
       </template>
@@ -20,6 +20,10 @@
 
       <template v-else-if="log.action === 'nickname'">
         {{ log.oldNickname }} 改名为 {{ log.sender }}
+      </template>
+
+      <template v-else-if="log.action === 'message'">
+        {{ log.sender }} {{ log.message }}
       </template>
     </div>
   </div>
