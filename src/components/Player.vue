@@ -22,6 +22,7 @@ const emit = defineEmits<{
 const props = defineProps<{
   src?: string
   filename?: string
+  subtitle?: string
   danmu?: string
 }>()
 
@@ -56,6 +57,16 @@ onMounted(() => {
     video: {
       url: props.src || '//vjs.zencdn.net/v/oceans.mp4',
     },
+
+    subtitle: props.subtitle
+      ? {
+          url: props.subtitle,
+          type: 'webvtt',
+          fontSize: '40px',
+          bottom: '10%',
+          color: '#b7daff',
+        }
+      : undefined,
 
     danmaku: props.danmu
       ? ({

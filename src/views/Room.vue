@@ -6,6 +6,7 @@
         ref="player"
         :src="src"
         :filename="filename"
+        :subtitle="subtitle"
         :danmu="danmu"
         @seek="onSeek"
         :key="key"
@@ -27,6 +28,7 @@
       <div class="room-slide__container">
         <div class="room-slide__header">
           <FileSelect v-model:src="src" v-model:filename="filename" />
+          <SubtitleSelect v-model:src="subtitle" />
 
           <div class="room-field">
             <label class="room-field__label" for="nickname">我的昵称</label>
@@ -126,6 +128,7 @@ import { store } from '@/store'
 
 import Player from '@/components/Player.vue'
 import FileSelect from '@/components/FileSelect.vue'
+import SubtitleSelect from '@/components/SubtitleSelect.vue'
 import Logs from '@/components/Logs.vue'
 
 const route = useRoute()
@@ -169,13 +172,21 @@ function send(params: IParams) {
 /* 播放器 */
 const src = ref('')
 const filename = ref('')
+const subtitle = ref('')
+const subtitleFilename = ref('')
 const danmu = ref('')
-const key = computed(() => [src.value, danmu.value].join('-'))
+const key = computed(() => [src.value, subtitle.value, danmu.value].join('-'))
 
 watch(filename, (filename) =>
   send({
     action: 'filename',
     filename,
+  })
+)
+watch(subtitleFilename, (filename) =>
+  send({
+    action: 'message',
+    message: `更换了字幕文件 ${filename}`,
   })
 )
 
