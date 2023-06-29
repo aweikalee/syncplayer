@@ -28,7 +28,10 @@
       <div class="room-slide__container">
         <div class="room-slide__header">
           <FileSelect v-model:src="src" v-model:filename="filename" />
-          <SubtitleSelect v-model:src="subtitle" />
+          <SubtitleSelect
+            v-model:src="subtitleSrc"
+            v-model:filename="subtitleFilename"
+          />
 
           <div class="room-field">
             <label class="room-field__label" for="nickname">我的昵称</label>
@@ -134,7 +137,7 @@ import Logs from '@/components/Logs.vue'
 const route = useRoute()
 const id = route.params.id
 
-const player = ref<any>()
+const player = shallowRef<any>()
 
 /* socket */
 
@@ -172,10 +175,31 @@ function send(params: IParams) {
 /* 播放器 */
 const src = ref('')
 const filename = ref('')
-const subtitle = ref('')
+const subtitleSrc = ref('')
 const subtitleFilename = ref('')
 const danmu = ref('')
-const key = computed(() => [src.value, subtitle.value, danmu.value].join('-'))
+const key = computed(() =>
+  [src.value, subtitleSrc.value, danmu.value].join('-')
+)
+const subtitle = computed(() => {
+  if (!subtitleSrc.value) return {}
+
+  function getSubtitleType(url: string) {
+    url = url.toLowerCase()
+    if (url.endsWith('.ass')) {
+      return 'ass'
+    } else if (url.endsWith('.srt')) {
+      return 'srt'
+    } else {
+      return 'vtt'
+    }
+  }
+
+  return {
+    url: subtitleSrc.value,
+    type: getSubtitleType(subtitleFilename.value),
+  }
+})
 
 watch(filename, (filename) =>
   send({
@@ -201,6 +225,7 @@ async function updateSeek(params: IResultBase<IMessagePlayer>) {
   if (params.from === socket.id) return
   player.value?.seek(params.time)
   player.value?.setRate(params.rate)
+
   await nextTick()
   if (params.paused) {
     player.value?.pause()
@@ -291,6 +316,7 @@ const showSlide = ref(true)
       bottom: 0;
       left: 0;
       right: 0;
+      z-index: 100;
       background: linear-gradient(rgba(black, 1), rgba(hsl(220, 13%, 48%), 1));
 
       display: flex;
@@ -455,6 +481,7 @@ const showSlide = ref(true)
       position: absolute;
       left: 0;
       top: 50%;
+      z-index: 100;
       transform: translate(-50%, -50%);
       height: 30px;
       width: 10px;

@@ -1,11 +1,16 @@
 <template>
-  <div ref="el" class="com-player"></div>
+  <div class="com-player">
+    <div ref="el" class="com-player__container"></div>
+  </div>
 </template>
 
 <script lang="ts" setup>
-import DPlayer, { DPlayerContextMenuItem } from 'dplayer'
+import Artplayer from 'artplayer'
+import { Subtitle } from 'artplayer/types/subtitle'
+import danmukuPlugin from 'artplayer-plugin-danmuku'
 
 import { store } from '@/store'
+import Option from 'artplayer/types/option'
 
 const emit = defineEmits<{
   (
@@ -22,12 +27,12 @@ const emit = defineEmits<{
 const props = defineProps<{
   src?: string
   filename?: string
-  subtitle?: string
+  subtitle?: Subtitle
   danmu?: string
 }>()
 
-const el = ref<HTMLVideoElement>()
-const player = ref<DPlayer>()
+const el = ref<HTMLDivElement>()
+const player = shallowRef<Artplayer>()
 
 let isManual = true
 let isManualSeek = true
@@ -39,41 +44,49 @@ onBeforeUnmount(() => {
 onMounted(() => {
   if (!el.value) return
 
-  const contextmenu: DPlayerContextMenuItem[] = []
-  if ('exitPictureInPicture' in document) {
-    contextmenu.push({
-      text: '画中画',
-      click: () => {
-        _player.video.requestPictureInPicture()
-      },
-    })
-  }
-
-  const _player = (player.value = new DPlayer({
+  const options: Option = {
     container: el.value,
     theme: '#56c4a1',
-    contextmenu,
 
-    video: {
-      url: props.src || '//vjs.zencdn.net/v/oceans.mp4',
+    url: props.src || '//vjs.zencdn.net/v/oceans.mp4',
+
+    subtitle: {
+      ...props.subtitle,
+      style: {
+        color: '#fff',
+        fontSize: '24px',
+        fontWeight: 'bold',
+        textShadow: '0 0 5px #000',
+      },
     },
 
-    subtitle: props.subtitle
-      ? {
-          url: props.subtitle,
-          type: 'webvtt',
-          fontSize: '40px',
-          bottom: '10%',
-          color: '#b7daff',
-        }
-      : undefined,
+    setting: true,
+    flip: true,
+    playbackRate: true,
+    aspectRatio: true,
+    subtitleOffset: true,
+    pip: true,
+    fullscreen: true,
 
-    danmaku: props.danmu
-      ? ({
-          addition: [`/danmu?t=${encodeURIComponent(props.danmu)}`],
-        } as any)
-      : undefined,
-  }))
+    cssVar: {
+      '--art-subtitle-bottom': '30px',
+    },
+  }
+
+  if (props.danmu) {
+    if (!options.plugins) {
+      options.plugins = []
+    }
+
+    options.plugins.push(
+      danmukuPlugin({
+        danmuku: `/danmu?t=${encodeURIComponent(props.danmu!)}`,
+        heatmap: true,
+      })
+    )
+  }
+
+  const _player = (player.value = new Artplayer(options))
 
   _player.on('play' as any, () => {
     if (!store.firstPlayed) store.setFirstPlayed(true)
@@ -100,7 +113,7 @@ onMounted(() => {
     isManual = true
   })
 
-  _player.on('seeked' as any, () => {
+  _player.on('video:seeked' as any, () => {
     if (isManualSeek) {
       emit('seek', {
         type: 'seek',
@@ -112,7 +125,7 @@ onMounted(() => {
     isManualSeek = true
   })
 
-  _player.on('ratechange' as any, () => {
+  _player.on('video:ratechange' as any, () => {
     if (isManual) {
       emit('seek', {
         type: 'ratechange',
@@ -127,26 +140,24 @@ onMounted(() => {
 
 function play() {
   if (!player.value) return
-  if (!player.value.video.paused) return
   isManual = false
-  player.value?.video.play()
+  player.value!.play()
 }
 function pause() {
   if (!player.value) return
-  if (player.value.video.paused) return
   isManual = false
-  player.value?.pause()
+  player.value!.pause()
 }
 function seek(time: number) {
   if (!player.value) return
   isManualSeek = false
-  player.value?.seek(time)
+  player.value!.seek = time
 }
 function setRate(rate: number) {
   if (!player.value) return
   if (player.value.video.playbackRate === rate) return
   isManual = false
-  player.value?.speed(rate)
+  player.value!.playbackRate = rate
 }
 
 defineExpose({
@@ -159,8 +170,13 @@ defineExpose({
 
 <style lang="less" scoped>
 .com-player {
-  :deep(.dplayer-comment) {
-    display: none !important;
+  .com-player__container {
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(.art-danmuku-emitter) {
+    display: none;
   }
 }
 </style>
