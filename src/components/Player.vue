@@ -10,6 +10,7 @@ import type { Option } from 'artplayer/types/option'
 import danmukuPlugin from 'artplayer-plugin-danmuku'
 
 import { store } from '@/store'
+import { getExt, isUrl, isBlobUrl, isCid, isBilibiliDanmuUrl } from '@/utils'
 
 const emit = defineEmits<{
   (
@@ -60,20 +61,9 @@ onMounted(() => {
   }
 
   if (store.source.subtitle) {
-    function getSubtitleType(url: string) {
-      url = url.toLowerCase()
-      if (url.endsWith('.ass')) {
-        return 'ass'
-      } else if (url.endsWith('.srt')) {
-        return 'srt'
-      } else {
-        return 'vtt'
-      }
-    }
-
     options.subtitle = {
       url: store.source.subtitle,
-      type: getSubtitleType(store.source.subtitleFilename),
+      type: getExt(store.source.subtitleFilename) || 'vtt',
       style: {
         color: '#fff',
         fontSize: '24px',
@@ -85,14 +75,24 @@ onMounted(() => {
 
   const danmu = store.source.danmu
   if (danmu) {
-    let danmuku = ''
-    if (
-      /^cid\=/.test(danmu) ||
-      /^http(s?):\/\/api\.bilibili\.com/.test(danmu)
-    ) {
+    let danmuku: any = []
+
+    if (isCid(danmu) || isBilibiliDanmuUrl(danmu)) {
       danmuku = `/danmu?t=${encodeURIComponent(danmu)}`
-    } else if (/^(blob:?)http(s?):\/\//.test(danmu)) {
-      danmuku = danmu
+    } else if (isBlobUrl(danmu)) {
+      const ext = getExt(store.source.danmuFilename)
+      if (ext === 'xml') {
+        danmuku = danmu
+      } else {
+        danmuku = () => fetch(danmu).then((res) => res.json())
+      }
+    } else if (isUrl(danmu)) {
+      const ext = getExt(danmu)
+      if (ext === 'xml') {
+        danmuku = danmuku
+      } else {
+        danmuku = () => fetch(danmu).then((res) => res.json())
+      }
     }
 
     if (danmuku) {

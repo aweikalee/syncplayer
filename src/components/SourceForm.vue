@@ -63,18 +63,13 @@
             <el-icon><InfoFilled /></el-icon>
           </template>
 
-          仅支持B站xml格式的弹幕文件，允许以下两种形式：
-          <ol>
-            <li>
-              完整的<b>弹幕地址</b> <br />
-              如：https://api.bilibili.com/x/v1/dm/list.so?oid=1
-            </li>
-            <li>
-              <b>cid=xxxx</b>形式<br />
-              如：cid=1 cid可从B站视频页面接口中寻找
-            </li>
-          </ol>
-          非B站来源，请注意跨域。推荐下载后，使用本地文件。
+          支持 <b>XML</b>(B站为代表) 与 <b>JSON</b>(巴哈姆特为代表)
+          两种格式的弹幕文件。<br />
+
+          非B站来源，请注意跨域。推荐下载后，使用本地文件。<br />
+          <br />
+
+          可直接输入<b>cid=xxxx</b>形式获取B站弹幕(cid可从B站视频页面接口中寻找)
         </el-popover>
       </template>
 
@@ -110,12 +105,11 @@ import { InfoFilled } from '@element-plus/icons-vue'
 import Dropbox from '@/components/Dropbox.vue'
 
 import { store } from '@/store'
-import { getExt } from '@/utils'
+import { getExt, isUrl, isBlobUrl, isCid } from '@/utils'
 
 const { source, config } = store
 
-const isValidUrl = /^(blob:?)http(s?):\/\//
-const isCid = /^cid\=/
+const isValidUrl = (val: string) => isUrl(val) || isBlobUrl(val)
 
 const formRef = ref()
 const form = reactive({
@@ -126,7 +120,7 @@ const formRules: FormRules = {
   src: [
     {
       validator(_, value, cb) {
-        if (value && !isValidUrl.test(value)) {
+        if (value && !isValidUrl(value)) {
           return cb(new Error('不是有效的视频地址'))
         }
 
@@ -138,7 +132,7 @@ const formRules: FormRules = {
   subtitle: [
     {
       validator(_, value, cb) {
-        if (value && !isValidUrl.test(value)) {
+        if (value && !isValidUrl(value)) {
           return cb(new Error('不是有效的字幕地址'))
         }
 
@@ -149,7 +143,7 @@ const formRules: FormRules = {
   danmu: [
     {
       validator(_, value, cb) {
-        if (value && !(isValidUrl.test(value) || isCid.test(value))) {
+        if (value && !(isValidUrl(value) || isCid(value))) {
           return cb(new Error('不是有效的弹幕地址'))
         }
 
