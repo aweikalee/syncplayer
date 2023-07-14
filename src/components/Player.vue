@@ -6,11 +6,10 @@
 
 <script lang="ts" setup>
 import Artplayer from 'artplayer'
-import { Subtitle } from 'artplayer/types/subtitle'
+import type { Option } from 'artplayer/types/option'
 import danmukuPlugin from 'artplayer-plugin-danmuku'
 
 import { store } from '@/store'
-import Option from 'artplayer/types/option'
 
 const emit = defineEmits<{
   (
@@ -22,13 +21,6 @@ const emit = defineEmits<{
       rate: number
     }
   ): void
-}>()
-
-const props = defineProps<{
-  src?: string
-  filename?: string
-  subtitle?: Subtitle
-  danmu?: string
 }>()
 
 const el = ref<HTMLDivElement>()
@@ -48,17 +40,7 @@ onMounted(() => {
     container: el.value,
     theme: '#56c4a1',
 
-    url: props.src || '//vjs.zencdn.net/v/oceans.mp4',
-
-    subtitle: {
-      ...props.subtitle,
-      style: {
-        color: '#fff',
-        fontSize: '24px',
-        fontWeight: 'bold',
-        textShadow: '0 0 5px #000',
-      },
-    },
+    url: store.source.src || '//vjs.zencdn.net/v/oceans.mp4',
 
     setting: true,
     flip: true,
@@ -73,23 +55,60 @@ onMounted(() => {
     },
   }
 
-  if (props.danmu) {
-    if (!options.plugins) {
-      options.plugins = []
+  if (!options.plugins) {
+    options.plugins = []
+  }
+
+  if (store.source.subtitle) {
+    function getSubtitleType(url: string) {
+      url = url.toLowerCase()
+      if (url.endsWith('.ass')) {
+        return 'ass'
+      } else if (url.endsWith('.srt')) {
+        return 'srt'
+      } else {
+        return 'vtt'
+      }
     }
 
-    options.plugins.push(
-      danmukuPlugin({
-        danmuku: `/danmu?t=${encodeURIComponent(props.danmu!)}`,
-        heatmap: true,
-      })
-    )
+    options.subtitle = {
+      url: store.source.subtitle,
+      type: getSubtitleType(store.source.subtitleFilename),
+      style: {
+        color: '#fff',
+        fontSize: '24px',
+        fontWeight: 'bold',
+        textShadow: '0 0 5px #000',
+      },
+    }
+  }
+
+  const danmu = store.source.danmu
+  if (danmu) {
+    let danmuku = ''
+    if (
+      /^cid\=/.test(danmu) ||
+      /^http(s?):\/\/api\.bilibili\.com/.test(danmu)
+    ) {
+      danmuku = `/danmu?t=${encodeURIComponent(danmu)}`
+    } else if (/^(blob:?)http(s?):\/\//.test(danmu)) {
+      danmuku = danmu
+    }
+
+    if (danmuku) {
+      options.plugins.push(
+        danmukuPlugin({
+          danmuku,
+          heatmap: true,
+        })
+      )
+    }
   }
 
   const _player = (player.value = new Artplayer(options))
 
   _player.on('play' as any, () => {
-    if (!store.firstPlayed) store.setFirstPlayed(true)
+    if (!store.player.firstPlayed) store.player.setFirstPlayed(true)
 
     if (isManual) {
       emit('seek', {

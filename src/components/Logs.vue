@@ -14,10 +14,6 @@
         {{ log.sender }} 离开了房间
       </template>
 
-      <template v-else-if="log.action === 'filename'">
-        {{ log.sender }} 更换了视频源 {{ log.filename }}
-      </template>
-
       <template v-else-if="log.action === 'nickname'">
         {{ log.oldNickname }} 改名为 {{ log.sender }}
       </template>

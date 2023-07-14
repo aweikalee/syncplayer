@@ -1,25 +1,18 @@
 <template>
   <div class="room">
     <div class="room-main">
-      <Player
-        class="room-player"
-        ref="player"
-        :src="src"
-        :filename="filename"
-        :subtitle="subtitle"
-        :danmu="danmu"
-        @seek="onSeek"
-        :key="key"
-      />
+      <Player class="room-player" ref="player" @seek="onSeek" :key="key" />
 
-      <div class="room-overlay" v-if="!store.firstPlayed">
+      <div class="room-overlay" v-if="!store.player.firstPlayed">
         <div class="room-overlay__content">
           <h2>SyncPlayer 同步播放器</h2>
           <p>
             由于浏览器的限制，当你看到这个提示时，说明播放器还未取得播放的控制权。可以通过点击下方的按钮进行授权
           </p>
 
-          <div class="room-overlay__button" @click="store.tryPlay">授权</div>
+          <div class="room-overlay__button" @click="store.player.tryPlay">
+            授权
+          </div>
         </div>
       </div>
     </div>
@@ -27,44 +20,14 @@
     <div class="room-slide" :class="{ active: showSlide }">
       <div class="room-slide__container">
         <div class="room-slide__header">
-          <FileSelect v-model:src="src" v-model:filename="filename" />
-          <SubtitleSelect
-            v-model:src="subtitleSrc"
-            v-model:filename="subtitleFilename"
-          />
-
-          <div class="room-field">
-            <label class="room-field__label" for="nickname">我的昵称</label>
-            <div class="room-field__input">
-              <input
-                id="nickname"
-                type="text"
-                v-model="nicknameModel"
-                @change="setNickname"
-                autocomplete="off"
-              />
-            </div>
+          <div class="room-slide__content" @click="showSourceDialog = true">
+            {{ sourceTitle }}
           </div>
 
-          <div
-            class="room-field"
-            :class="{
-              error: danmuModelError,
-            }"
-          >
-            <label class="room-field__label" for="danmu">弹幕地址</label>
-            <div class="room-field__input">
-              <input
-                id="danmu"
-                type="text"
-                v-model="danmuModel"
-                @change="setDanmu"
-                autocomplete="off"
-              />
-            </div>
-            <div class="room-field__append">
-              <div class="room-field__tip" @click="showDanmuTip">?</div>
-            </div>
+          <div class="room-slide__nickname">
+            <el-input v-model="nicknameModel" @change="setNickname">
+              <template #prefix>我的昵称：</template>
+            </el-input>
           </div>
         </div>
 
@@ -78,6 +41,24 @@
       ></div>
     </div>
   </div>
+
+  <el-dialog
+    v-model="showSourceDialog"
+    title="来源设置"
+    destroy-on-close
+    width="600px"
+    :style="{ maxWidth: '100%' }"
+    @close="store.player.tryPlay"
+  >
+    <SourceForm ref="sourceFormRef" />
+
+    <template #footer>
+      <el-button @click="showSourceDialog = false">取消</el-button>
+      <el-button type="primary" @click="onSourceSubmit">确定</el-button>
+    </template>
+  </el-dialog>
+
+  <Dropbox @drop="onFileDrop" v-if="!showSourceDialog" />
 </template>
 
 <script lang="ts">
@@ -91,22 +72,16 @@ type IMessagePlayer = {
   rate: number
 }
 
-type IMessageFilename = {
-  action: 'filename'
-  filename: string
-}
-
 type IMessageMessage = {
   action: 'message'
   message: string
 }
 
-export type IParams = IMessagePlayer | IMessageMessage | IMessageFilename
+export type IParams = IMessagePlayer | IMessageMessage
 
 export type IResult = IResultBase<
   | IMessagePlayer
   | IMessageMessage
-  | IMessageFilename
   | {
       action: 'join'
       nickname: string
@@ -126,12 +101,15 @@ export type IResult = IResultBase<
 import { io } from 'socket.io-client'
 import { onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import 'element-plus/es/components/message/style/css'
 
 import { store } from '@/store'
+import { getExt } from '@/utils'
 
 import Player from '@/components/Player.vue'
-import FileSelect from '@/components/FileSelect.vue'
-import SubtitleSelect from '@/components/SubtitleSelect.vue'
+import SourceForm from '@/components/SourceForm.vue'
+import Dropbox from '@/components/Dropbox.vue'
 import Logs from '@/components/Logs.vue'
 
 const route = useRoute()
@@ -145,7 +123,7 @@ const socket = io('/', {
   transports: ['websocket'],
   query: {
     room: id,
-    nickname: store.nickname,
+    nickname: store.user.nickname,
   },
 })
 onUnmounted(() => socket.disconnect())
@@ -172,46 +150,78 @@ function send(params: IParams) {
   socket.emit('message', params)
 }
 
-/* 播放器 */
-const src = ref('')
-const filename = ref('')
-const subtitleSrc = ref('')
-const subtitleFilename = ref('')
-const danmu = ref('')
-const key = computed(() =>
-  [src.value, subtitleSrc.value, danmu.value].join('-')
-)
-const subtitle = computed(() => {
-  if (!subtitleSrc.value) return {}
+/* 来源 */
+const showSourceDialog = ref(false)
+const sourceFormRef = ref()
+async function onSourceSubmit() {
+  await sourceFormRef.value.submit()
+  showSourceDialog.value = false
+}
 
-  function getSubtitleType(url: string) {
-    url = url.toLowerCase()
-    if (url.endsWith('.ass')) {
-      return 'ass'
-    } else if (url.endsWith('.srt')) {
-      return 'srt'
-    } else {
-      return 'vtt'
-    }
-  }
-
-  return {
-    url: subtitleSrc.value,
-    type: getSubtitleType(subtitleFilename.value),
-  }
+const sourceTitle = computed(() => {
+  const name = store.source.filename
+  if (!name) return '选择播放内容'
+  if (name.length < 60) return name
+  return `${name.slice(0, 30)} ... ${name.slice(-20)}`
 })
 
-watch(filename, (filename) =>
-  send({
-    action: 'filename',
-    filename,
-  })
+watch(
+  () => store.source.filename,
+  (filename) => {
+    send({
+      action: 'message',
+      message: `更换了视频源 ${filename}`,
+    })
+  }
 )
-watch(subtitleFilename, (filename) =>
-  send({
-    action: 'message',
-    message: `更换了字幕文件 ${filename}`,
-  })
+watch(
+  () => store.source.subtitleFilename,
+  (filename) => {
+    send({
+      action: 'message',
+      message: `更换了字幕源 ${filename}`,
+    })
+  }
+)
+watch(
+  () => store.source.danmuFilename,
+  (filename) => {
+    send({
+      action: 'message',
+      message: `更换了弹幕源 ${filename}`,
+    })
+  }
+)
+
+function onFileDrop(file: File) {
+  const filename = file.name
+  const src = URL.createObjectURL(file)
+
+  const exts = store.config.ext
+  const ext = getExt(filename)
+
+  if (exts.video.includes(ext)) {
+    store.source.src = src
+    store.source.filename = filename
+  } else if (exts.subtitle.includes(ext)) {
+    store.source.subtitle = src
+    store.source.subtitleFilename = filename
+  } else if (exts.danmu.includes(ext)) {
+    store.source.danmu = src
+    store.source.danmuFilename = filename
+  } else {
+    ElMessage({
+      type: 'warning',
+      message: '无法识别的文件类型，请通过来源设置使用该文件',
+    })
+  }
+
+  store.player.tryPlay()
+}
+
+/* 播放器 */
+const key = computed(() =>
+  [store.source.src, store.source.subtitle, store.source.danmu].join('-')
 )
 
 function onSeek(params: Omit<IMessagePlayer, 'action'>) {
@@ -234,49 +244,10 @@ async function updateSeek(params: IResultBase<IMessagePlayer>) {
   }
 }
 
-/* 弹幕 */
-const danmuModel = ref('')
-const danmuModelError = ref(false)
-watch(
-  () => danmu.value,
-  (value) => (danmuModel.value = value)
-)
-function setDanmu() {
-  let value = danmuModel.value
-  value = value.trim()
-  if (
-    !value ||
-    /^cid\=/.test(value) ||
-    /^http(s?):\/\/api\.bilibili\.com/.test(value)
-  ) {
-    danmu.value = value
-    danmuModelError.value = false
-
-    if (value) {
-      send({
-        action: 'message',
-        message: `将弹幕地址设置为了 ${value}`,
-      })
-    }
-  } else {
-    danmuModelError.value = true
-  }
-}
-
-function showDanmuTip() {
-  alert(`仅支持B站弹幕，支持下面2种形式：
-  1. 完整的“弹幕地址”
-    如：https://api.bilibili.com/x/v1/dm/list.so?oid=1
-  2. “cid=xxxx”形式
-    如：cid=1
-    cid可从B站视频页面接口中寻找
-  `)
-}
-
 /* 用户名 */
-const nicknameModel = ref(store.nickname)
+const nicknameModel = ref(store.user.nickname)
 watch(
-  () => store.nickname,
+  () => store.user.nickname,
   (value) => (nicknameModel.value = value)
 )
 function setNickname() {
@@ -284,13 +255,13 @@ function setNickname() {
   nickname = nickname.trim()
   if (nickname.length > 20) nickname = nickname.slice(0, 20)
   if (!nickname.length) {
-    nicknameModel.value = store.nickname
+    nicknameModel.value = store.user.nickname
     return
   }
   nicknameModel.value = nickname
 
   socket.emit('nickname', { nickname })
-  store.nickname = nickname
+  store.user.nickname = nickname
 }
 
 /* 显隐侧边栏 */
@@ -365,69 +336,35 @@ const showSlide = ref(true)
     display: none;
   }
 
-  .room-field {
-    display: flex;
-    align-items: center;
-    padding: 4px 4px;
-    margin: 0 10px;
-    border-bottom: 2px solid;
-    border-image: linear-gradient(
-        135deg,
-        rgba(#56c4a1, 1),
-        rgba(hsl(220, 13%, 38%), 1)
-      )
-      1 1;
+  .room-slide__content {
     color: white;
+    font-size: 16px;
 
-    &.error {
-      border-image: linear-gradient(
-          135deg,
-          rgba(#c47d56, 1),
-          rgba(hsl(21, 48%, 38%), 1)
-        )
-        1 1;
+    padding: 10px 10px;
+    box-sizing: border-box;
+    text-align: center;
+    word-break: break-all;
+    word-wrap: break-word;
+
+    cursor: pointer;
+    user-select: none;
+
+    background-image: linear-gradient(
+      135deg,
+      rgba(#56c4a1, 1),
+      rgba(hsl(220, 13%, 38%), 1)
+    );
+
+    &:hover {
+      opacity: 0.9;
     }
-
-    .room-field__label {
-      flex-shrink: 0;
-      font-weight: bold;
-      margin-right: 10px;
+    &:active {
+      opacity: 0.7;
     }
+  }
 
-    .room-field__input {
-      flex-grow: 1;
-      height: 30px;
-
-      > input {
-        width: 100%;
-        height: 100%;
-        appearance: none;
-        background-color: transparent;
-        border: none;
-        color: inherit;
-        outline: none;
-      }
-    }
-
-    .room-field__append {
-      flex-shrink: 0;
-      margin-left: 10px;
-    }
-    .room-field__tip {
-      border: 1px solid white;
-      border-radius: 50%;
-      width: 1em;
-      height: 1em;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-
-      cursor: pointer;
-      user-select: none;
-      &:active {
-        opacity: 0.7;
-      }
-    }
+  .room-slide__nickname {
+    padding: 4px;
   }
 }
 
