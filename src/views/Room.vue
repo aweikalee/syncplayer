@@ -62,7 +62,7 @@
 </template>
 
 <script lang="ts">
-type IResultBase<T> = { from: string; sender: string } & T
+type IResultBase<T> = { from: string; sender: string; createdAt: string } & T
 
 type IMessagePlayer = {
   action: 'player'
@@ -131,7 +131,12 @@ onUnmounted(() => socket.disconnect())
 const logs = ref<IResult[]>([])
 const MAX_LOG_LENGTH = 100
 function addLog(result: IResult) {
-  logs.value.unshift(result)
+  const createdAt = new Date().toLocaleTimeString()
+
+  logs.value.unshift({
+    ...result,
+    createdAt,
+  })
 
   logs.value.length = Math.min(MAX_LOG_LENGTH, logs.value.length)
 }
@@ -390,6 +395,7 @@ const showSlide = ref(true)
       &.active {
         .room-slide__container {
           display: flex;
+          height: 100%;
         }
       }
     }
