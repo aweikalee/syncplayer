@@ -29,6 +29,7 @@ const player = shallowRef<Artplayer>()
 
 let isManual = true
 let isManualSeek = true
+let isManualRate = true
 
 onBeforeUnmount(() => {
   player.value?.destroy()
@@ -145,7 +146,7 @@ onMounted(() => {
   })
 
   _player.on('video:ratechange' as any, () => {
-    if (isManual) {
+    if (isManualRate) {
       emit('seek', {
         type: 'ratechange',
         paused: _player.video.paused,
@@ -153,7 +154,7 @@ onMounted(() => {
         rate: _player.video.playbackRate,
       })
     }
-    isManual = true
+    isManualRate = true
   })
 })
 
@@ -175,7 +176,7 @@ function seek(time: number) {
 function setRate(rate: number) {
   if (!player.value) return
   if (player.value.video.playbackRate === rate) return
-  isManual = false
+  isManualRate = false
   player.value!.playbackRate = rate
 }
 
